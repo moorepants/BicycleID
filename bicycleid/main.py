@@ -30,12 +30,13 @@ class Gui:
     toggleButtonNames['Maneuver'] = [x + 'Button' for x in maneuvers]
 
     def __init__(self):
+
         fileName = "BicycleID.glade"
         self.builder = gtk.Builder()
         self.builder.add_from_file(fileName)
 
         dic = {
-            "on_mainWindow_destroy" : gtk.main_quit,
+            'on_mainWindow_destroy' : gtk.main_quit,
             'on_charlieButton_toggled': self.change_toggle_state,
             'on_jasonButton_toggled': self.change_toggle_state,
             'on_lukeButton_toggled': self.change_toggle_state,
@@ -45,7 +46,8 @@ class Gui:
             'on_trackButton_toggled': self.change_toggle_state,
             'on_balanceDisturbButton_toggled': self.change_toggle_state,
             'on_trackDisturbButton_toggled': self.change_toggle_state,
-        }
+            'on_meanFitSpinButton_value_changed': self.update_mean_fit
+            }
 
         self.builder.connect_signals(dic)
 
@@ -60,12 +62,14 @@ class Gui:
         self.plotBox.pack_start(self.coefPlot.canvas, True, True)
 
         # load the initial experimental data
-        self.expData = data.ExperimentalData()
+        self.data = data.ExperimentalData()
         # load all the rider models
-        self.model = {}
+        self.models = {}
         for r in self.riders:
             rider = r.capitalize()
-            self.model[rider] = model.Whipple(rider)
+            self.models[rider] = model.Whipple(rider)
+
+        self.state_to_dict()
         self.load_exp_data()
         self.load_mod_data()
         self.select_rider_model()
@@ -74,6 +78,9 @@ class Gui:
         self.update_graph()
 
     def get_toggle_button_states(self):
+        """Gets the current toggle button states and stores them in a
+        dictionary."""
+
         self.toggleStates = {k:{} for k in self.toggleButtonNames.keys()}
         for k, v in self.toggleButtonNames.items():
             for name in v:
@@ -81,36 +88,42 @@ class Gui:
                 self.toggleStates[k][name] = button.get_active()
 
     def load_exp_data(self):
-
-        subsetDict = self.toggle_state_to_dict()
-        self.exp = self.expData.subset(**subsetDict)
+        self.exp = self.data.subset(**self.subsetDict)
 
     def load_mod_data(self):
+        """Computes the model output data for each rider and stores it in
+        self.mod."""
         speeds = np.linspace(self.coefPlot.xlim[0],
                              self.coefPlot.xlim[1],
                              num=20)
         self.mod = {}
         for rider in self.riders:
             self.mod[rider.capitalize()] = \
-                    self.model[rider.capitalize()].matrices(speeds)
+                    self.models[rider.capitalize()].matrices(speeds)
 
     def select_rider_model(self):
-        subsetDict = self.toggle_state_to_dict()
+        """Set the selected models based on the riders in self.subset."""
         self.modSelect = {}
-        for rider in subsetDict['Rider']:
+        for rider in self.subsetDict['Rider']:
             self.modSelect[rider] = self.mod[rider]
 
-    def toggle_state_to_dict(self):
-        subsetDict = {}
+    def update_mean_fit(self, widget):
+        self.state_to_dict()
+        self.load_exp_data()
+        self.update_graph()
+
+    def state_to_dict(self):
+        self.subsetDict = {}
         for butTyp, buttons in self.toggleStates.items():
             l = []
             for butName, state in buttons.items():
                 if state is True:
                     label = self.builder.get_object(butName).get_label()
                     l.append(label)
-            subsetDict[butTyp] = l
+            self.subsetDict[butTyp] = l
 
-        return subsetDict
+        self.subsetDict['MeanFit'] = \
+                self.builder.get_object('meanFitSpinButton').get_value()
 
     def update_graph(self):
         self.coefPlot.update_graph(self.exp, self.modSelect)
@@ -121,6 +134,8 @@ class Gui:
         for k, v in self.toggleStates.items():
             if name in v.keys():
                 self.toggleStates[k][name] = widget.get_active()
+
+        self.state_to_dict()
         self.load_exp_data()
         self.select_rider_model()
         self.update_graph()

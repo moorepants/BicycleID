@@ -30,7 +30,7 @@ class Gui:
     toggleButtonNames['Maneuver'] = [x + 'Button' for x in maneuvers]
 
     def __init__(self):
-        fileName = "CoefficientGUI.glade"
+        fileName = "BicycleID.glade"
         self.builder = gtk.Builder()
         self.builder.add_from_file(fileName)
 

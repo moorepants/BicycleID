@@ -50,13 +50,10 @@ class ExperimentalData(object):
                 except KeyError:
                     d[col] = [B[i]]
 
-        # add riders, manuevers, enviroments
-
         dataset = bdp.DataSet(fileName=PATH_TO_DATABASE, pathToH5=PATH_TO_H5,
                 pathToCorruption=PATH_TO_CORRUPT)
         dataset.open()
 
-        # find all the runs for Jason that were without disturbances
         table = dataset.database.root.runTable
 
         tableCols = ['Rider', 'Maneuver', 'Environment', 'Duration']
@@ -93,9 +90,12 @@ class ExperimentalData(object):
 
         for col in ['Rider', 'Maneuver', 'Environment']:
             if col in kwargs.keys():
+                # todo: this is sorta hacky, something better is needed
                 # this is for a spelling error in the data set
                 if col == 'Environment' and 'Pavilion' in kwargs[col]:
                     kwargs[col].append('Pavillion Floor')
+                if col == 'Environment' and 'Treadmill' in kwargs[col]:
+                    kwargs[col].append('Horse Treadmill')
                 df = df[df[col].isin(kwargs[col])]
 
         for col in ['MeanFit', 'Duration']:

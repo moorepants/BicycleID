@@ -35,22 +35,6 @@ class Gui:
         self.builder = gtk.Builder()
         self.builder.add_from_file(fileName)
 
-        dic = {
-            'on_mainWindow_destroy' : gtk.main_quit,
-            'on_charlieButton_toggled': self.change_toggle_state,
-            'on_jasonButton_toggled': self.change_toggle_state,
-            'on_lukeButton_toggled': self.change_toggle_state,
-            'on_treadmillButton_toggled': self.change_toggle_state,
-            'on_pavilionButton_toggled': self.change_toggle_state,
-            'on_balanceButton_toggled': self.change_toggle_state,
-            'on_trackButton_toggled': self.change_toggle_state,
-            'on_balanceDisturbButton_toggled': self.change_toggle_state,
-            'on_trackDisturbButton_toggled': self.change_toggle_state,
-            'on_meanFitSpinButton_value_changed': self.update_mean_fit
-            }
-
-        self.builder.connect_signals(dic)
-
         self.mainWindow = self.builder.get_object('mainWindow')
 
         # set the default toggle button states
@@ -74,7 +58,49 @@ class Gui:
         self.load_mod_data()
         self.select_rider_model()
 
+        self.initialize_parameters()
+
         # update graph with initial data
+        self.update_graph()
+
+        dic = {
+            'on_mainWindow_destroy' : gtk.main_quit,
+            'on_charlieButton_toggled': self.change_toggle_state,
+            'on_jasonButton_toggled': self.change_toggle_state,
+            'on_lukeButton_toggled': self.change_toggle_state,
+            'on_treadmillButton_toggled': self.change_toggle_state,
+            'on_pavilionButton_toggled': self.change_toggle_state,
+            'on_balanceButton_toggled': self.change_toggle_state,
+            'on_trackButton_toggled': self.change_toggle_state,
+            'on_balanceDisturbButton_toggled': self.change_toggle_state,
+            'on_trackDisturbButton_toggled': self.change_toggle_state,
+            'on_meanFitSpinButton_value_changed': self.update_mean_fit
+            }
+
+        for par in self.models['Jason'].parameters.keys():
+            dic['on_' + par + '_SpinButton_value_changed'] = \
+                self.change_parameter
+
+        self.builder.connect_signals(dic)
+
+    def initialize_parameters(self):
+        for par, val in self.models['Jason'].parameters.items():
+            lower = val - 2 * val
+            upper = val + 2 * val
+            step_inc = 0.05 * val
+            page_inc = 0.05 * val
+            adj = gtk.Adjustment(0., lower, upper, step_inc, page_inc, 0.)
+            button = self.builder.get_object(par + '_SpinButton')
+            if button is not None:
+                button.set_adjustment(adj)
+
+    def change_parameter(self, widget):
+        name = gtk.Buildable.get_name(widget).split('_')[0]
+        add = widget.get_value()
+        for rider, model in self.models.items():
+            model.set_parameter(name, model.defaultParameters[name] + add)
+        self.load_mod_data()
+        self.select_rider_model()
         self.update_graph()
 
     def get_toggle_button_states(self):
@@ -88,6 +114,7 @@ class Gui:
                 self.toggleStates[k][name] = button.get_active()
 
     def load_exp_data(self):
+        """Loads the subset of the experimental data."""
         self.exp = self.data.subset(**self.subsetDict)
 
     def load_mod_data(self):
@@ -95,7 +122,7 @@ class Gui:
         self.mod."""
         speeds = np.linspace(self.coefPlot.xlim[0],
                              self.coefPlot.xlim[1],
-                             num=20)
+                             num=5)
         self.mod = {}
         for rider in self.riders:
             self.mod[rider.capitalize()] = \
@@ -108,11 +135,15 @@ class Gui:
             self.modSelect[rider] = self.mod[rider]
 
     def update_mean_fit(self, widget):
+        """Callback for adjusting the mean fit spin button."""
         self.state_to_dict()
         self.load_exp_data()
         self.update_graph()
 
     def state_to_dict(self):
+        """Converts the state of the wigdets used for subsetting the data and
+        writes a dictionary which can be passed to the ExperimentalData subset
+        method."""
         self.subsetDict = {}
         for butTyp, buttons in self.toggleStates.items():
             l = []
@@ -126,10 +157,13 @@ class Gui:
                 self.builder.get_object('meanFitSpinButton').get_value()
 
     def update_graph(self):
+        """Redraws the plot based on the current experimental and model
+        data."""
         self.coefPlot.update_graph(self.exp, self.modSelect)
         self.coefPlot.canvas.draw()
 
     def change_toggle_state(self, widget):
+        """The callback for the factor toggle buttons."""
         name = gtk.Buildable.get_name(widget)
         for k, v in self.toggleStates.items():
             if name in v.keys():

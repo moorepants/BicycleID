@@ -113,6 +113,11 @@ class Whipple(FirstPrinciplesModel):
         self.bicycle.add_rider(self.rider)
         self.parameters = self.bicycle.parameters['Benchmark']
         self.defaultParameters = bp.io.remove_uncertainties(self.parameters)
+        self.set_default_parameters()
+
+    def set_default_parameters(self):
+        for k in self.parameters.keys():
+            self.parameters[k] = self.defaultParameters[k]
 
     def state_space(self, speed):
         """Returns the state and input matrix for the Whipple bicycle model.

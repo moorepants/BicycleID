@@ -122,7 +122,7 @@ class Gui:
         self.mod."""
         speeds = np.linspace(self.coefPlot.xlim[0],
                              self.coefPlot.xlim[1],
-                             num=5)
+                             num=8)
         self.mod = {}
         for rider in self.riders:
             self.mod[rider.capitalize()] = \

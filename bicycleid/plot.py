@@ -25,8 +25,9 @@ class CoefficientPlot(object):
 
         rc('figure.subplot', wspace=0.4, hspace=0.4)
         self.figure = mpfig.Figure(figsize=(6, 4), dpi=60)
-        #self.figure = plt.figure()
         self.axes = {}
+
+        self.title = self.figure.suptitle('')
 
         for i in range(2, 4):
             for j in range(4):
@@ -58,6 +59,7 @@ class CoefficientPlot(object):
 
     def update_graph(self, exp, mod):
 
+        self.title.set_text('Number of experiments: {}'.format(len(exp)))
         for name, line in self.lines.items():
             try:
                 label, typ, rider = name.split('-')

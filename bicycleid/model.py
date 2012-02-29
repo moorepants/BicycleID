@@ -1,6 +1,7 @@
 import numpy as np
 import pandas
 import bicycleparameters as bp
+from dtk import control
 
 from config import PATH_TO_PARAMETERS
 
@@ -140,3 +141,17 @@ class Whipple(FirstPrinciplesModel):
         B = BFull[:, 1]
 
         return A, B
+
+    def magnitude_phase(self, speed, w):
+
+        A, B = self.state_space(speed)
+
+        C = np.array([[1., 0., 0., 0.],
+                      [0., 1., 0., 0.]])
+        D = np.zeros((2, 1))
+
+        sys = control.StateSpace(A, B.reshape(4, 1), C, D)
+        bode = control.Bode(w, sys)
+        mag, phase = bode.mag_phase_system(sys)
+
+        return mag.squeeze(), phase.squeeze()

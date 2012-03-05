@@ -17,15 +17,19 @@ import model
 import plot
 
 # debugging
-from IPython.core.debugger import Tracer
-set_trace = Tracer()
+try:
+    from IPython.core.debugger import Tracer
+except ImportError:
+    pass
+else:
+    set_trace = Tracer()
 
 class Gui:
 
     riders = ['charlie', 'jason', 'luke']
     environments = ['treadmill', 'pavilion']
     maneuvers = ['balance', 'balanceDisturb', 'track', 'trackDisturb']
-    speeds = ['1.4', '2.0', '3.0', '4.0', '4.92', '5.8', '7.0']
+    speeds = ['1.4', '2.0', '3.0', '4.0', '4.92', '5.8', '7.0', '9.0']
 
     toggleButtonNames = {}
     toggleButtonNames['Rider'] = [x + 'Button' for x in riders]
@@ -34,6 +38,7 @@ class Gui:
     toggleButtonNames['Speed'] = [x + 'Button' for x in speeds]
 
     bodeFrequency = np.logspace(-1, 2., num=200)
+    eigSpeed = np.linspace(0., 10., num=100)
 
     def __init__(self):
 
@@ -46,13 +51,11 @@ class Gui:
         # set the default toggle button states
         self.get_toggle_button_states()
 
-        # make the initial plots
-        self.initialize_coef_plot()
-        self.initialize_bode_plots()
-
         # load the initial experimental data
-        self.data = data.ExperimentalData(self.bodeFrequency)
+        print('Loading the experimental data...')
+        self.data = data.ExperimentalData(w=self.bodeFrequency)
         # load all the rider models
+        print('Loading the first principles models...')
         self.models = {}
         for r in self.riders:
             rider = r.capitalize()
@@ -62,7 +65,13 @@ class Gui:
 
         self.initialize_parameters()
 
-        # update graph with initial data
+        # make the initial plots
+        print('Initializing plots...')
+        self.initialize_coef_plot()
+        self.initialize_bode_plots()
+        self.initialize_root_loci_plot()
+
+        # update the coef graph with initial data
         self.update_coef_graph()
 
         dic = {
@@ -81,6 +90,7 @@ class Gui:
             'on_4.92Button_toggled': self.change_toggle_state,
             'on_5.8Button_toggled': self.change_toggle_state,
             'on_7.0Button_toggled': self.change_toggle_state,
+            'on_9.0Button_toggled': self.change_toggle_state,
             'on_balanceDisturbButton_toggled': self.change_toggle_state,
             'on_trackDisturbButton_toggled': self.change_toggle_state,
             'on_meanFitSpinButton_value_changed': self.update_mean_fit,
@@ -106,7 +116,8 @@ class Gui:
             self.update_bode_data()
             self.update_bode_plot()
         elif name == 'eigTab':
-            pass
+            self.update_eig_data()
+            self.update_root_loci_plot()
         else:
             raise Exception('No plot named {}.'.format(name))
 
@@ -132,9 +143,10 @@ class Gui:
             self.update_bode_data()
             self.update_bode_plot()
         elif plotTab == 'eigTab':
-            pass
+            self.update_eig_data()
+            self.update_root_loci_plot()
         else:
-            raise Exception('No tab named {}.'.format(name))
+            raise Exception('No tab named {}.'.format(plotTab))
 
     def change_toggle_state(self, widget):
         """The callback for the factor toggle buttons."""
@@ -155,9 +167,10 @@ class Gui:
             self.update_bode_data()
             self.update_bode_plot()
         elif plotTab == 'eigTab':
-            pass
+            self.update_eig_data()
+            self.update_root_loci_plot()
         else:
-            raise Exception('No tab named {}.'.format(name))
+            raise Exception('No tab named {}.'.format(plotTab))
 
     ## Helper Functions ##
 
@@ -217,9 +230,7 @@ class Gui:
     def load_mod_data(self):
         """Computes the model output data for each rider and stores it in
         self.mod."""
-        speeds = np.linspace(self.coefPlot.xlim[0],
-                             self.coefPlot.xlim[1],
-                             num=8)
+        speeds = np.linspace(0., 10., num=8)
         self.mod = {}
         for rider in self.riders:
             self.mod[rider.capitalize()] = \
@@ -268,6 +279,23 @@ class Gui:
         self.bodePlot.update_graph(self.bodeSubset, self.models)
         self.bodePlot.canvases[0].draw()
         self.bodePlot.canvases[1].draw()
+
+    ## Root Loci Plot ##
+
+    def initialize_root_loci_plot(self):
+        self.update_eig_data()
+        self.rootLociPlot = plot.RootLociPlot(self.models, self.expEigSpeed,
+                self.eigSubset, self.eigSpeed)
+        self.rootLociPlotBox = self.builder.get_object("rootLociPlotBox")
+        self.rootLociPlotBox.pack_start(self.rootLociPlot.canvas, True, True)
+
+    def update_eig_data(self):
+        self.state_to_dict()
+        self.expEigSpeed, self.eigSubset = self.data.subset_eig(**self.subsetDict)
+
+    def update_root_loci_plot(self):
+        self.rootLociPlot.update_plot(self.expEigSpeed, self.eigSubset)
+        self.rootLociPlot.canvas.draw()
 
     ## Model Parameters ##
 

@@ -3,6 +3,7 @@ from matplotlib import rc
 import matplotlib.figure as mpfig
 import matplotlib.backends.backend_gtk as mpgtk
 from dtk import control
+import bicycleparameters as bp
 
 class CoefficientPlot(object):
 
@@ -10,16 +11,16 @@ class CoefficientPlot(object):
     states = [r'\phi', r'\delta', r'\dot{\phi}', r'\dot{\delta}']
     xlabel = r'$v$ $\frac{m}{s^2}$'
     xlim = (1., 8.)
-    ylim = np.array([[0., 20.],
-                       [-80., 0.],
-                       [-1.5, 4.],
-                       [-8., 0.],
-                       [-0.2, 1.2],
-                       [0., 200.],
-                       [-175., 40.],
-                       [-40., 60.],
-                       [-100., 0.],
-                       [0., 20.]])
+    ylim = np.array([[-10., 30.],
+                     [-60., 0.],
+                     [-4., 2.],
+                     [-3., 3.],
+                     [-0.5, 0.5],
+                     [-50., 300.],
+                     [-175., 40.],
+                     [-50., 50.],
+                     [-40., 20.],
+                     [-5., 15.]])
     riderNames = ['Charlie', 'Jason', 'Luke']
 
     def __init__(self):
@@ -83,7 +84,7 @@ class BodePlot(object):
     systemNames = ['Experimental Mean', 'Experimental Upper Uncertainty',
             'Experimental Lower Uncertainty', 'Charlie', 'Jason', 'Luke']
     colors = ['b', 'b', 'b', 'r', 'g', 'm']
-    linestyles = ['-', '--', ':', '-', '-', '-']
+    linestyles = ['-', '--', '--', '-', '-', '-']
 
     def __init__(self, w):
 
@@ -124,15 +125,14 @@ class BodePlot(object):
     def update_graph(self, bodeData, models):
         meanMag, stdMag, meanPhase, stdPhase, meanSpeed = bodeData
 
-        meanMag = 20. * np.log10(meanMag)
-        stdMag = 20. * np.log10(stdMag)
-        meanPhase = np.rad2deg(meanPhase)
-        stdPhase = np.rad2deg(stdPhase)
+        meanMagPlus = meanMag + stdMag
+        meanMagMinus = meanMag - stdMag
 
+        # steer torque to roll angle
         phiPlot = self.bode.figs[0]
         phiPlot.magAx.lines[0].set_ydata(meanMag[:, 0, 0])
-        phiPlot.magAx.lines[1].set_ydata(meanMag[:, 0, 0] + stdMag[:, 0, 0])
-        phiPlot.magAx.lines[2].set_ydata(meanMag[:, 0, 0] - stdMag[:, 0, 0])
+        phiPlot.magAx.lines[1].set_ydata(meanMagPlus[:, 0, 0])
+        phiPlot.magAx.lines[2].set_ydata(meanMagMinus[:, 0, 0])
         phiPlot.magAx.set_ylim((-100, 50))
 
         phiPlot.phaseAx.lines[0].set_ydata(meanPhase[:, 0, 0])
@@ -140,10 +140,11 @@ class BodePlot(object):
         phiPlot.phaseAx.lines[2].set_ydata(meanPhase[:, 0, 0] - stdPhase[:, 0, 0])
         phiPlot.phaseAx.set_ylim((-360, 0))
 
+        # steer torque to steer angle
         deltaPlot = self.bode.figs[1]
         deltaPlot.magAx.lines[0].set_ydata(meanMag[:, 1, 0])
-        deltaPlot.magAx.lines[1].set_ydata(meanMag[:, 1, 0] + stdMag[:, 1, 0])
-        deltaPlot.magAx.lines[2].set_ydata(meanMag[:, 1, 0] - stdMag[:, 1, 0])
+        deltaPlot.magAx.lines[1].set_ydata(meanMagPlus[:, 1, 0])
+        deltaPlot.magAx.lines[2].set_ydata(meanMagMinus[:, 1, 0])
         deltaPlot.magAx.set_ylim((-100, 50))
 
         deltaPlot.phaseAx.lines[0].set_ydata(meanPhase[:, 1, 0])
@@ -164,3 +165,26 @@ class BodePlot(object):
             phiPlot.phaseAx.lines[self.systemNames.index(rider)].set_ydata(phase[:, 0])
             deltaPlot.magAx.lines[self.systemNames.index(rider)].set_ydata(mag[:, 1])
             deltaPlot.phaseAx.lines[self.systemNames.index(rider)].set_ydata(phase[:, 1])
+
+class RootLociPlot(object):
+    def __init__(self, models, expSpeed, eig, speed):
+        # the plot should have eigenvalues for each rider in a different color
+        # and plot dots for the eigenvalues from the model
+
+        self.fig = bp.plot_eigenvalues([mod.bicycle for mod in models.values()], speed)
+
+        # plot eigenvalues of the experimental models
+        self.ax = self.fig.axes[0]
+        self.ax.set_ylim((-10., 10.))
+
+        self.real = self.ax.plot(expSpeed, np.real(eig), '.k')
+        self.imag = self.ax.plot(expSpeed, abs(np.imag(eig)), '.b')
+
+        self.canvas = mpgtk.FigureCanvasGTK(self.fig)
+        self.canvas.show()
+
+    def update_plot(self, speed, eig):
+        for i, line in enumerate(self.real):
+            line.set_data(speed, np.real(eig[:, i]))
+        for i, line in enumerate(self.imag):
+            line.set_data(speed, abs(np.imag(eig[:, i])))

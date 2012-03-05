@@ -6,6 +6,14 @@ import bicycledataprocessor as bdp
 from bicycledataprocessor.database import get_row_num
 from dtk import control
 
+# debugging
+try:
+    from IPython.core.debugger import Tracer
+except ImportError:
+    pass
+else:
+    set_trace = Tracer()
+
 from config import (PATH_TO_SYSTEM_ID_DATA, PATH_TO_DATABASE, PATH_TO_H5,
         PATH_TO_CORRUPT)
 
@@ -14,7 +22,7 @@ class ExperimentalData(object):
     states = ['Phi', 'Delta', 'PhiDot', 'DeltaDot']
     inputs = ['TDelta']
 
-    def __init__(self, w, fileName=None):
+    def __init__(self, fileName=None, w=None):
         """Loads a .mat file and data from the database to construct a
         data frame."""
 
@@ -23,13 +31,16 @@ class ExperimentalData(object):
         else:
             self.fileName = fileName
 
+        if w is None:
+            w = np.logspace(0.1, 1.0, num=100)
+
         mat = loadmat(self.fileName, squeeze_me=True)
 
         d = {}
 
         d['RunID'] = [os.path.splitext(str(r))[0] for r in mat['matFiles']]
         d['ActualSpeed'] = mat['speeds']
-        #d['Duration'] = mat['durations']
+        d['Duration'] = mat['durations']
 
         for fit in mat['fits']:
             for i, state in enumerate(self.states):
@@ -57,9 +68,9 @@ class ExperimentalData(object):
             for i in range(2, 4):
                 col = 'b' + str(i + 1) + str(1)
                 try:
-                    d[col].append(B[i])
+                    d[col].append(B[i, 0])
                 except KeyError:
-                    d[col] = [B[i]]
+                    d[col] = [B[i, 0]]
 
         dataset = bdp.DataSet(fileName=PATH_TO_DATABASE, pathToH5=PATH_TO_H5,
                 pathToCorruption=PATH_TO_CORRUPT)
@@ -84,6 +95,7 @@ class ExperimentalData(object):
         self.w = w
 
         self.load_bode_data()
+        self.load_eig_data()
 
     def load_bode_data(self):
         """Computes the magnitude and phase information for the steer torque to
@@ -107,7 +119,7 @@ class ExperimentalData(object):
         self.phases = np.zeros((numRuns, len(self.w), 2, 1))
 
         for i, A in enumerate(self.stateMatrices):
-            B = self.inputMatrices[i].reshape((4, 1))
+            B = self.inputMatrices[i][:, 0].reshape((4, 1))
             sys = control.StateSpace(A, B, C, D)
             bode = control.Bode(self.w)
             self.magnitudes[i], self.phases[i] = bode.mag_phase_system(sys)
@@ -164,11 +176,16 @@ class ExperimentalData(object):
             for j, freq in enumerate(run):
                 adjustedSubPhases[i, j] = freq - changeInPhase - 2 * np.pi
 
-        meanMag = subMags.mean(axis=0)
-        stdMag = subMags.std(axis=0)
+        # convert to dB and degrees, then calculate the mean and standard
+        # deviations
+        magDB = 20.0 * np.log10(subMags)
+        phaseDeg = np.rad2deg(adjustedSubPhases)
 
-        meanPhase = adjustedSubPhases.mean(axis=0)
-        stdPhase = adjustedSubPhases.std(axis=0)
+        meanMag = magDB.mean(axis=0)
+        stdMag = magDB.std(axis=0)
+
+        meanPhase = phaseDeg.mean(axis=0)
+        stdPhase = phaseDeg.std(axis=0)
 
         #meanPhase = subPhases.mean(axis=0)
         #stdPhase = subPhases.std(axis=0)
@@ -216,3 +233,19 @@ class ExperimentalData(object):
         # todo: add the ability to slice with respect to the individual fits
 
         return df
+
+    def load_eig_data(self):
+
+        self.eig = np.zeros((self.stateMatrices.shape[0], 4),
+                dtype=np.complex64)
+
+        for i, A in enumerate(self.stateMatrices):
+            self.eig[i] = np.linalg.eig(A)[0]
+
+    def subset_eig(self, **kwargs):
+
+        df = self.subset(**kwargs)
+
+        indices = self.dataFrame['RunID'].isin(df['RunID'])
+
+        return df['ActualSpeed'], self.eig[indices]

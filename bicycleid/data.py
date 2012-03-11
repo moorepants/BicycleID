@@ -222,7 +222,7 @@ class ExperimentalData(object):
                 df = df[df[col].isin(kwargs[col])]
 
         if 'Speed' in kwargs.keys():
-            allSpeeds = set(['1.4', '2.0', '3.0', '4.0', '4.92', '5.8', '7.0'])
+            allSpeeds = set(['1.4', '2.0', '3.0', '4.0', '4.92', '5.8', '7.0', '9.0'])
             for speed in allSpeeds.difference(set(kwargs['Speed'])):
                 df = df[abs(df['Speed'] - float(speed)) > 1e-5]
 

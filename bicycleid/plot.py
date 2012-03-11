@@ -158,7 +158,7 @@ class BodePlot(object):
             phase = np.rad2deg(phase)
 
             for i, p in enumerate(phase.T):
-                if p[0] > 360.:
+                if p[0] > 0.:
                     phase[:, i] = phase[:, i] - 360.
 
             phiPlot.magAx.lines[self.systemNames.index(rider)].set_ydata(mag[:, 0])
@@ -177,14 +177,21 @@ class RootLociPlot(object):
         self.ax = self.fig.axes[0]
         self.ax.set_ylim((-10., 10.))
 
-        self.real = self.ax.plot(expSpeed, np.real(eig), '.k')
-        self.imag = self.ax.plot(expSpeed, abs(np.imag(eig)), '.b')
+
+        #self.real = self.ax.plot(expSpeed, np.real(eig), '.k')
+        self.real = []
+        for eigs in eig.T:
+            eigWithImag = abs(np.imag(eigs)) > 1e-10
+            self.real.append(self.ax.scatter(expSpeed, np.real(eigs),
+                c=eigWithImag))
+        self.imag = self.ax.plot(expSpeed, abs(np.imag(eig)), 'ob')
 
         self.canvas = mpgtk.FigureCanvasGTK(self.fig)
         self.canvas.show()
 
     def update_plot(self, speed, eig):
         for i, line in enumerate(self.real):
-            line.set_data(speed, np.real(eig[:, i]))
+            xy = np.vstack((speed, np.real(eig[:, i]))).T
+            line.set_offsets(xy)
         for i, line in enumerate(self.imag):
             line.set_data(speed, abs(np.imag(eig[:, i])))

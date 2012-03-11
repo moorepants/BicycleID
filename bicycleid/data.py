@@ -32,7 +32,7 @@ class ExperimentalData(object):
             self.fileName = fileName
 
         if w is None:
-            w = np.logspace(0.1, 1.0, num=100)
+            w = np.logspace(-1.0, 1.0, num=100)
 
         mat = loadmat(self.fileName, squeeze_me=True)
 
@@ -152,6 +152,7 @@ class ExperimentalData(object):
 
         df = self.subset(**kwargs)
         meanSpeed = df['ActualSpeed'].mean()
+        stdSpeed = df['ActualSpeed'].std()
 
         indices = self.dataFrame['RunID'].isin(df['RunID'])
 
@@ -190,7 +191,7 @@ class ExperimentalData(object):
         #meanPhase = subPhases.mean(axis=0)
         #stdPhase = subPhases.std(axis=0)
 
-        return meanMag, stdMag, meanPhase, stdPhase, meanSpeed
+        return meanMag, stdMag, meanPhase, stdPhase, meanSpeed, stdSpeed
 
     def subset(self, **kwargs):
         """Returns a subset of the experimental data based on the provided
@@ -205,7 +206,13 @@ class ExperimentalData(object):
             Straight Line`, or `Track Straight Line With Disturbance`.
         Environment : list
             A list of environments: `Treadmill` or `Pavilion`
-
+        Speed : list
+            A list of speed bins: '1.4', '2.0', '3.0', '4.0', '4.92', '5.8',
+            '7.0', '9.0'
+        MeanFit : float
+            The minimum mean fit value for the output fits.
+        Duration : float
+            The minimum duration of the runs.
         """
 
         df = self.dataFrame

@@ -9,8 +9,8 @@ class CoefficientPlot(object):
 
     equations = [r'\dot{\phi}', r'\dot{\delta}', r'\ddot{\phi}', r'\ddot{\delta}']
     states = [r'\phi', r'\delta', r'\dot{\phi}', r'\dot{\delta}']
-    xlabel = r'$v$ $\frac{m}{s^2}$'
-    xlim = (1., 8.)
+    xlabel = r'$v$ $\frac{m}{s}$'
+    xlim = (1.0, 10.0)
     ylim = np.array([[-10., 30.],
                      [-60., 0.],
                      [-4., 2.],
@@ -52,7 +52,8 @@ class CoefficientPlot(object):
 
         self.lines = {}
         for label, ax in self.axes.items():
-            self.lines[label + '-exp'] = ax.plot(self.xlim, [1., 1.], '.')[0]
+            self.lines[label + '-exp'] = ax.plot(self.xlim, [1., 1.], '.',
+                    markersize=2)[0]
             for rider in self.riderNames:
                 self.lines[label + '-mod-' + rider] = ax.plot(self.xlim, [1., 1.])[0]
 
@@ -60,6 +61,18 @@ class CoefficientPlot(object):
         self.canvas.show()
 
     def update_graph(self, exp, mod):
+        """Sets the data in the plot with respect to the provided experimental
+        and model data sets.
+
+        Parameters
+        ----------
+        exp : pandas.DataFrame
+            A data frame containing the experimental data.
+        mod : dictionary
+            A dictionary of pandas.DataFrame objects containing the data for
+            each rider.
+
+        """
 
         self.title.set_text('Number of experiments: {}'.format(len(exp)))
         for name, line in self.lines.items():
@@ -123,7 +136,18 @@ class BodePlot(object):
             canvas.show()
 
     def update_graph(self, bodeData, models):
-        meanMag, stdMag, meanPhase, stdPhase, meanSpeed = bodeData
+        """Updates the Bode plot based on the provided data.
+
+        Parameters
+        ----------
+        bodeData : tuple
+            The mean and standard deviation of the magnitude and phase and the
+            mean speed for the set of runs.
+        models : dictionary
+            A dictionary of models for each rider.
+
+        """
+        meanMag, stdMag, meanPhase, stdPhase, meanSpeed, stdSpeed = bodeData
 
         meanMagPlus = meanMag + stdMag
         meanMagMinus = meanMag - stdMag
@@ -152,14 +176,22 @@ class BodePlot(object):
         deltaPlot.phaseAx.lines[2].set_ydata(meanPhase[:, 1, 0] - stdPhase[:, 1, 0])
         deltaPlot.phaseAx.set_ylim((-360, 0))
 
-        for rider, mod in models.items():
-            mag, phase = mod.magnitude_phase(meanSpeed, self.w)
-            mag = 20. * np.log10(mag)
-            phase = np.rad2deg(phase)
+        for rider in ['Charlie', 'Jason', 'Luke']:
+            try:
+                mod = models[rider]
+            except KeyError:
+                # if the rider isn't there, don't plot the lines
+                lenW = len(deltaPlot.magAx.lines[0].get_xdata())
+                mag = np.nan * np.ones((lenW, 2))
+                phase = np.nan * np.ones((lenW, 2))
+            else:
+                mag, phase = mod.magnitude_phase(meanSpeed, self.w)
+                mag = 20. * np.log10(mag)
+                phase = np.rad2deg(phase)
 
-            for i, p in enumerate(phase.T):
-                if p[0] > 0.:
-                    phase[:, i] = phase[:, i] - 360.
+                for i, p in enumerate(phase.T):
+                    if p[0] > 0.:
+                        phase[:, i] = phase[:, i] - 360.
 
             phiPlot.magAx.lines[self.systemNames.index(rider)].set_ydata(mag[:, 0])
             phiPlot.phaseAx.lines[self.systemNames.index(rider)].set_ydata(phase[:, 0])

@@ -3,6 +3,14 @@ import pandas
 import bicycleparameters as bp
 from dtk import control
 
+# debugging
+try:
+    from IPython.core.debugger import Tracer
+except ImportError:
+    pass
+else:
+    set_trace = Tracer()
+
 from config import PATH_TO_PARAMETERS
 
 class FirstPrinciplesModel(object):
@@ -59,11 +67,12 @@ class FirstPrinciplesModel(object):
         dataframe : pandas.DataFrame
             The columns are speed with the state and input matric entries for
             the acceleration equations. The states are [roll angle, steer
-            angle, roll rate, steer rate]. The input are [steer torque].
+            angle, roll rate, steer rate]. The input are [steer torque, lateral
+            force].
 
         """
         A = np.zeros((len(speedRange), 4, 4))
-        B = np.zeros((len(speedRange), 4))
+        B = np.zeros((len(speedRange), 4, 2))
 
         for i, speed in enumerate(speedRange):
             A[i], B[i] = self.state_space(speed)
@@ -78,8 +87,9 @@ class FirstPrinciplesModel(object):
                 d[col] = A[:, i, j]
 
         for i in range(2, 4):
-            col = 'b' + str(i + 1) + str(1)
-            d[col] = B[:, i]
+            for j in range(2):
+                col = 'b' + str(i + 1) + str(j + 1)
+                d[col] = B[:, i, j]
 
         dataframe = pandas.DataFrame(d)
 
@@ -133,12 +143,18 @@ class Whipple(FirstPrinciplesModel):
         A : ndarray, shape(4,4)
             The state matrix with states [roll angle, steer angle, roll rate,
             steer rate].
-        B : ndarray, shape(4,)
-            The input matrix with inputs [steer torque].
+        B : ndarray, shape(4,2)
+            The input matrix with inputs [steer torque, lateral force].
 
         """
-        A, BFull = self.bicycle.state_space(speed, nominal=True)
-        B = BFull[:, 1]
+        # the B matrix returned is for the inputs [roll torque, steer torque]
+        A, BT = self.bicycle.state_space(speed, nominal=True)
+        if self.rider == 'Jason':
+            H = np.array([[0.943], [0.011]])
+        else:
+            H = np.array([[0.902], [0.011]])
+        BF = np.dot(BT[2:, :], H)
+        B = np.hstack((BT[:, 1].reshape(4,1), np.vstack((np.zeros((2,1)), BF))))
 
         return A, B
 

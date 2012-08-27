@@ -66,11 +66,12 @@ class ExperimentalData(object):
 
         for B in mat['inputMatrices']:
             for i in range(2, 4):
-                col = 'b' + str(i + 1) + str(1)
-                try:
-                    d[col].append(B[i, 0])
-                except KeyError:
-                    d[col] = [B[i, 0]]
+                for j in range(0, 2):
+                    col = 'b' + str(i + 1) + str(j + 1)
+                    try:
+                        d[col].append(B[i, j])
+                    except KeyError:
+                        d[col] = [B[i, j]]
 
         dataset = bdp.DataSet(fileName=PATH_TO_DATABASE, pathToH5=PATH_TO_H5,
                 pathToCorruption=PATH_TO_CORRUPT)
